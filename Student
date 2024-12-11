@@ -1,0 +1,276 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MAX_NAME_LEN 50
+#define MAX_COURSES 100
+#define HASH_TABLE_SIZE 100
+
+struct course {
+    int course_id;
+    char course_name[MAX_NAME_LEN];
+    struct course *next;
+};
+
+struct student {
+    int student_id;
+    char name[MAX_NAME_LEN];
+    int enrolled_courses[MAX_COURSES];
+    float grades[MAX_COURSES];
+    int course_count;
+    char advisor[MAX_NAME_LEN];
+    struct student *next;
+};
+
+// hash table for courses and students
+struct course *course_table[HASH_TABLE_SIZE];
+struct student *student_table[HASH_TABLE_SIZE];
+
+// hash function
+int hash(int id) {
+    return id % HASH_TABLE_SIZE;
+}
+
+// course management
+void add_course() {
+    int course_id;
+    char course_name[MAX_NAME_LEN];
+
+    printf("Enter course ID: ");
+    scanf("%d", &course_id);
+    printf("Enter course name: ");
+    scanf("%s", course_name);
+
+    int index = hash(course_id);
+    struct course *new_course = (struct course *)malloc(sizeof(struct course));
+    new_course->course_id = course_id;
+    strcpy(new_course->course_name, course_name);
+    new_course->next = course_table[index];
+    course_table[index] = new_course;
+    printf("Course added successfully.\n");
+}
+
+void delete_course() {
+    int course_id;
+    printf("Enter course ID to delete: ");
+    scanf("%d", &course_id);
+
+    int index = hash(course_id);
+    struct course *current = course_table[index];
+    struct course *prev = NULL;
+
+    while (current != NULL && current->course_id != course_id) {
+        prev = current;
+        current = current->next;
+    }
+
+    if (current == NULL) {
+        printf("Course not found.\n");
+        return;
+    }
+
+    if (prev == NULL) {
+        course_table[index] = current->next;
+    } else {
+        prev->next = current->next;
+    }
+
+    free(current);
+    printf("Course deleted successfully.\n");
+}
+
+void search_course() {
+    int course_id;
+    printf("Enter course ID to search: ");
+    scanf("%d", &course_id);
+
+    int index = hash(course_id);
+    struct course *current = course_table[index];
+
+    while (current != NULL) {
+        if (current->course_id == course_id) {
+            printf("Course found: %s\n", current->course_name);
+            return;
+        }
+        current = current->next;
+    }
+    printf("Course not found.\n");
+}
+
+// student management
+void add_student() {
+    int student_id;
+    char name[MAX_NAME_LEN];
+    char advisor[MAX_NAME_LEN];
+
+    printf("Enter student ID: ");
+    scanf("%d", &student_id);
+    printf("Enter student name: ");
+    scanf("%s", name);
+    printf("Enter advisor name: ");
+    scanf("%s", advisor);
+
+    int index = hash(student_id);
+    struct student *new_student = (struct student *)malloc(sizeof(struct student));
+    new_student->student_id = student_id;
+    strcpy(new_student->name, name);
+    strcpy(new_student->advisor, advisor);
+    new_student->course_count = 0;
+    new_student->next = student_table[index];
+    student_table[index] = new_student;
+    printf("Student added successfully.\n");
+}
+
+struct student *find_student(int student_id) {
+    int index = hash(student_id);
+    struct student *current = student_table[index];
+
+    while (current != NULL) {
+        if (current->student_id == student_id) {
+            return current;
+        }
+        current = current->next;
+    }
+    return NULL;
+}
+
+void search_student() {
+    int student_id;
+    printf("Enter student ID to search: ");
+    scanf("%d", &student_id);
+
+    struct student *current = find_student(student_id);
+    if (current != NULL) {
+        printf("Student found: %s, Advisor: %s\n", current->name, current->advisor);
+    } else {
+        printf("Student not found.\n");
+    }
+}
+
+void enroll_course() {
+    int student_id, course_id;
+    float grade;
+
+    printf("Enter student ID: ");
+    scanf("%d", &student_id);
+    printf("Enter course ID: ");
+    scanf("%d", &course_id);
+    printf("Enter grade: ");
+    scanf("%f", &grade);
+
+    struct student *stu = find_student(student_id);
+    if (stu == NULL) {
+        printf("Student not found.\n");
+        return;
+    }
+
+    if (stu->course_count >= MAX_COURSES) {
+        printf("Maximum courses reached.\n");
+        return;
+    }
+
+    stu->enrolled_courses[stu->course_count] = course_id;
+    stu->grades[stu->course_count] = grade;
+    stu->course_count++;
+    printf("Course enrolled successfully.\n");
+}
+
+void find_top_students() {
+    int course_id;
+    printf("Enter course ID to find top students: ");
+    scanf("%d", &course_id);
+
+    float max_grade = -1;
+    struct student *top_student = NULL;
+
+    for (int i = 0; i < HASH_TABLE_SIZE; i++) {
+        struct student *current = student_table[i];
+        while (current != NULL) {
+            for (int j = 0; j < current->course_count; j++) {
+                if (current->enrolled_courses[j] == course_id && current->grades[j] > max_grade) {
+                    max_grade = current->grades[j];
+                    top_student = current;
+                }
+            }
+            current = current->next;
+        }
+    }
+
+    if (top_student != NULL) {
+        printf("Top student for course %d: %s with grade %.2f\n", course_id, top_student->name, max_grade);
+    } else {
+        printf("No students found for course %d.\n", course_id);
+    }
+}
+
+void list_students_by_advisor() {
+    char advisor[MAX_NAME_LEN];
+    printf("Enter advisor name to list students: ");
+    scanf("%s", advisor);
+
+    printf("Students assigned to advisor %s:\n", advisor);
+    for (int i = 0; i < HASH_TABLE_SIZE; i++) {
+        struct student *current = student_table[i];
+        while (current != NULL) {
+            if (strcmp(current->advisor, advisor) == 0) {
+                printf("%s (ID: %d)\n", current->name, current->student_id);
+            }
+            current = current->next;
+        }
+    }
+}
+
+int main() {
+    // initialize hash tables
+    memset(course_table, 0, sizeof(course_table));
+    memset(student_table, 0, sizeof(student_table));
+
+    int choice;
+    while (1) {
+        printf("\nStudent Management System:\n");
+        printf("1. Add Course\n");
+        printf("2. Delete Course\n");
+        printf("3. Search Course\n");
+        printf("4. Add Student\n");
+        printf("5. Search Student\n");
+        printf("6. Enroll Course\n");
+        printf("7. Find Top Students\n");
+        printf("8. List Students by Advisor\n");
+        printf("9. Exit\n");
+        printf("Enter your choice: ");
+        scanf("%d", &choice);
+
+        switch (choice) {
+            case 1:
+                add_course();
+                break;
+            case 2:
+                delete_course();
+                break;
+            case 3:
+                search_course();
+                break;
+            case 4:
+                add_student();
+                break;
+            case 5:
+                search_student();
+                break;
+            case 6:
+                enroll_course();
+                break;
+            case 7:
+                find_top_students();
+                break;
+            case 8:
+                list_students_by_advisor();
+                break;
+            case 9:
+                exit(0);
+            default:
+                printf("Invalid choice.\n");
+        }
+    }
+
+    return 0;
+}
